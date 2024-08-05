@@ -4,7 +4,7 @@ FallacyScoreboard is an offline tool that downloads YouTube videos, processes th
 
 ## Demo Video
 
-[![FallacyScoreboard Demo](https://youtu.be/1plEKbSHJMM/0.jpg)](https://youtu.be/1plEKbSHJMM)
+![FallacyScoreboard Demo](https://youtu.be/1plEKbSHJMM)
 
 Click the image above to watch a demonstration of FallacyScoreboard in action!
 
