@@ -1,6 +1,6 @@
 # FallacyScoreboard
 
-FallacyScoreboard is an offline tool that downloads YouTube videos, processes them using WhisperX for automatic speech recognition and speaker diarization, detects logical fallacies, and overlays the results on the video like a sporting event scoreboard.
+FallacyScoreboard is an offline tool that downloads YouTube videos, processes them using WhisperX for automatic speech recognition and speaker diarization, detects logical fallacies using LLMs with OLLAMA, and overlays the results on the video with a scoreboard.
 
 ## Demo Video
 
