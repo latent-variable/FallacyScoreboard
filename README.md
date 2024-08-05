@@ -2,6 +2,12 @@
 
 FallacyScoreboard is an offline tool that downloads YouTube videos, processes them using WhisperX for automatic speech recognition and speaker diarization, detects logical fallacies, and overlays the results on the video like a sporting event scoreboard.
 
+## Demo Video
+
+[![FallacyScoreboard Demo](https://youtu.be/1plEKbSHJMM/0.jpg)](https://youtu.be/1plEKbSHJMM)
+
+Click the image above to watch a demonstration of FallacyScoreboard in action!
+
 ## Features
 
 - Download YouTube videos and extract audio
@@ -15,7 +21,7 @@ FallacyScoreboard is an offline tool that downloads YouTube videos, processes th
 
 1. **Clone the repository**:
     ```bash
-    git clone https://github.com/yourusername/FallacyScoreboard.git
+    git clone https://github.com/latent-variable/FallacyScoreboard.git
     cd FallacyScoreboard
     ```
 

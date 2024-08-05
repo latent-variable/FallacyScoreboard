@@ -3,7 +3,6 @@ import json
 import ollama
 import yt_dlp
 import random
-import logging
 import colorsys
 import whisperx
 
@@ -13,21 +12,23 @@ from moviepy.editor import VideoFileClip, TextClip,  ColorClip, concatenate_vide
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
 
-logging.basicConfig(level=logging.INFO)
 
 # Set the path to the ImageMagick binary
 IMAGEMAGIK = r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe"
 change_settings({"IMAGEMAGICK_BINARY": IMAGEMAGIK})
 
+# Needed to download Hugging Face models Pyannote models for whisperx
+YOUR_HF_TOKEN = None
 
-# OLLAMA HOST 
+# OLLAMA host & model
 OLLAMA_HOST  = 'http://192.168.50.81:11434' #'http://localhost:11434'
 OLLAMA_MODEL = 'llama3.1:70b' # 'llama3.1' 
 
 def download_youtube_video(url, video_name):
     ydl_opts = {
-        'format': 'mp4',
+        'format': 'bestvideo[height=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
         'outtmpl': str(video_name),
+        'merge_output_format': 'mp4',
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
@@ -51,7 +52,7 @@ def transcribe_audio_with_whisperx(audio_path, output_path):
     align_model, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
     result_aligned = whisperx.align(result["segments"], align_model, metadata, audio, device)
 
-    diarize_model = whisperx.DiarizationPipeline(device=device)
+    diarize_model = whisperx.DiarizationPipeline(use_auth_token=YOUR_HF_TOKEN, device=device)
     diarize_segments = diarize_model(audio)
     result = whisperx.assign_word_speakers(diarize_segments, result_aligned)
     
@@ -151,10 +152,18 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
         original_width, original_height = video.size
         video_duration = video.duration
 
-        sidebar_width = int(original_width * 0.25)
-        bottom_height = int(original_height * 0.2)
+        # Calculate sizes based on video dimensions
+        sidebar_width = int(original_width * 0.25)  # 25% of original width
+        bottom_height = int(original_height * 0.2)  # 20% of original height
         new_width = original_width + sidebar_width
         new_height = original_height + bottom_height
+
+        # Calculate font sizes based on video height
+        main_font_size = max(int(original_height * 0.04), 12)  # 2% of height, minimum 12
+        subtitle_font_size = max(int(original_height * 0.033), 10)  # 1.5% of height, minimum 10
+        
+        # Define the position for the explanation box (e.g., 30% down from the top of the video)
+        explanation_top_position = int(original_height * 0.25)  
 
         background = ColorClip(size=(new_width, new_height), color=(0, 0, 0)).set_duration(video_duration)
         video = video.set_position((0, 0))
@@ -172,14 +181,12 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
 
         def create_scoreboard(counters):
             scoreboard_text = "Fallacy Scoreboard\n" + "\n".join([f"{s}: {c}" for s, c in counters.items()])
-            return TextClip(scoreboard_text, fontsize=16, color='white', bg_color='black', size=(sidebar_width, None), method='caption', align='center')
+            return TextClip(scoreboard_text, fontsize=main_font_size, color='white', bg_color='black', size=(sidebar_width, None), method='caption', align='center')
 
         scoreboard = create_scoreboard(fallacy_counters)
         scoreboard = scoreboard.set_position((original_width, 0)).set_duration(video_duration)
 
         text_clips = [scoreboard]
-
-        last_fallacy_end = 0
         current_fallacy = None
 
         for result in fallacy_results:
@@ -202,37 +209,40 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
                 text_clips.append(new_scoreboard)
 
                 fallacy_text = f"Speaker: {speaker}\nFallacies: {', '.join(valid_fallacies)}\n\nExplanation:\n{reason}"
-                fallacy_box = TextClip(fallacy_text, fontsize=10, color=speaker_colors[speaker], bg_color='black', method='caption', size=(sidebar_width - 20, None))
+                
+                # Create the fallacy box without specifying a fixed height
+                fallacy_box = TextClip(fallacy_text, fontsize=subtitle_font_size, color=speaker_colors[speaker], 
+                                    bg_color='black', method='caption', 
+                                    size=(sidebar_width - 20, None),
+                                    stroke_color='white', stroke_width=1)
                 
                 fallacy_composite = CompositeVideoClip([fallacy_box.set_opacity(0.8)], size=fallacy_box.size)
-                fallacy_composite = fallacy_composite.set_position((original_width + 10, 100)).set_start(start_time).set_end(end_time)
+                
+                # Set the position of the fallacy box lower on the screen
+                fallacy_composite = fallacy_composite.set_position((original_width + 10, explanation_top_position)).set_start(start_time).set_end(end_time)
                 
                 text_clips.append(fallacy_composite)
                 current_fallacy = fallacy_composite
-                last_fallacy_end = end_time
             elif current_fallacy:
-                # Extend the duration of the current fallacy explanation if no new fallacy
                 extended_fallacy = current_fallacy.set_end(end_time)
                 text_clips.append(extended_fallacy)
-                last_fallacy_end = end_time
 
-            subtitle = TextClip(text_segment, fontsize=14, color=speaker_colors[speaker], bg_color='black', method='caption', size=(original_width, None))
+            subtitle = TextClip(text_segment, fontsize=subtitle_font_size, color=speaker_colors[speaker], bg_color='black', method='caption', size=(original_width, None))
             subtitle = subtitle.set_position((0, original_height)).set_start(start_time).set_end(end_time)
             text_clips.append(subtitle)
 
         # If there's remaining video duration, extend the last fallacy explanation
-        if last_fallacy_end < video_duration and current_fallacy:
+        if current_fallacy and current_fallacy.end < video_duration:
             final_extension = current_fallacy.set_end(video_duration)
             text_clips.append(final_extension)
 
         final_clip = CompositeVideoClip([background, video] + text_clips, size=(new_width, new_height))
         final_clip = final_clip.set_duration(video_duration)
 
-        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=4, fps=24)
+        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=16, fps=24)
 
     except Exception as e:
-        logging.error(f"Error in overlay_fallacies_on_video: {str(e)}")
-        raise
+        print(f"An error occurred: {str(e)}")
 
 
 def fallacy_detection_pipeline(youtube_url, output_path):
