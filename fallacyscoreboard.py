@@ -21,7 +21,7 @@ change_settings({"IMAGEMAGICK_BINARY": IMAGEMAGIK})
 YOUR_HF_TOKEN = None
 
 # OLLAMA host & model
-OLLAMA_HOST  = 'http://192.168.50.81:11434' #'http://localhost:11434'
+OLLAMA_HOST  = 'http://localhost:11434' #'http://localhost:11434'
 OLLAMA_MODEL = 'llama3.1:70b' # 'llama3.1' 
 
 def download_youtube_video(url, video_name):

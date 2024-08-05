@@ -64,7 +64,7 @@ Click the image above to watch a demonstration of FallacyScoreboard in action!
 2. **Customize OLLAMA settings**:
    You can customize the OLLAMA host and model by modifying these variables in the script:
    ```python
-   OLLAMA_HOST = 'http://192.168.50.81:11434'
+   OLLAMA_HOST = 'http://localhost:11434'
    OLLAMA_MODEL = 'llama3.1'
    ```
 
