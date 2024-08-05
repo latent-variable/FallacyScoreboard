@@ -69,7 +69,9 @@ def format_text(json_file, output_path):
     # Process the segments to extract speaker labels and text
     formatted_text = []
     for segment in data['segments']:
-        speaker = segment['speaker']
+        speaker = 'multiple'
+        if 'speaker' in segment:
+            speaker = segment['speaker']
         start = segment["start"]
         end = segment["end"]
         text = segment['text'].strip()
@@ -290,7 +292,7 @@ def fallacy_detection_pipeline(youtube_url, output_path):
 if __name__ == "__main__": 
     # Example usage
     output_path = os.path.abspath(Path("./Files"))
-    video_url = "https://www.youtube.com/watch?v=LM-bjbeqaqE"
+    video_url = "https://www.youtube.com/watch?v=Z3eCCbVr3EU"
     # create output folder if it does not exist 
     if not os.path.exists(output_path):
         os.makedirs(output_path)
