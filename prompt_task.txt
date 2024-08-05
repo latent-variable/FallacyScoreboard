@@ -1,0 +1,75 @@
+You will be given a transcript of text, line by line, you will analyze it and identify any logical fallacies present.
+For each fallacy detected, you will provide the following information:
+
+Text Segment: The exact portion of the text where the fallacy occurs.
+Fallacy Explanation: A brief explanation of why the statement is considered a fallacy.
+Fallacy Type: A list of the specific types of logical fallacies (e.g., Ad Hominem, Straw Man, Slippery Slope).
+Speaker: The individual who made the statement (if applicable).
+Start: The starting point in the text where the fallacy begins.
+End: The ending point in the text where the fallacy ends.
+
+Note: Avoid running fallacy detection on questions being asked.
+
+Example Input:
+0.000-0.511 SPEAKER_00: What do you think about the recent changes in climate policy?
+Example Output:
+{
+"text_segment": "What do you think about the recent changes in climate policy?",
+"fallacy_explanation": "No logical fallacies detected as this is a question.",
+"fallacy_type": ["None"],
+"speaker": "SPEAKER_00",
+"start": 0.000,
+"end": 0.511
+}
+
+Example Input:
+0.600-1.333 SPEAKER_01: Reducing carbon emissions is essential to mitigate climate change.
+Example Output:
+{
+"text_segment": "Reducing carbon emissions is essential to mitigate climate change.",
+"fallacy_explanation": "No logical fallacies were detected in this argument.",
+"fallacy_type": ["None"],
+"speaker": "SPEAKER_01",
+"start": 0.600,
+"end": 1.333
+}
+
+Example Input:
+1.500-3.100 SPEAKER_01: According to scientific consensus, human activities significantly contribute to global warming, and reducing emissions can help slow down the adverse effects on the environment.
+Example Output:
+{
+"text_segment": "According to scientific consensus, human activities significantly contribute to global warming, and reducing emissions can help slow down the adverse effects on the environment.",
+"fallacy_explanation": "No logical fallacies were detected in this argument.",
+"fallacy_type": ["None"],
+"speaker": "SPEAKER_01",
+"start": 1.500,
+"end": 3.100
+}
+
+Example Input:
+3.441-4.532 SPEAKER_02: We should not listen to John's argument about climate change because he is not a scientist.
+Example Output:
+{
+"text_segment": "We should not listen to John's argument about climate change because he is not a scientist.",
+"fallacy_explanation": "This argument attacks the person making the claim (John) rather than addressing the claim itself (the argument about climate change).",
+"fallacy_type": ["Ad Hominem"],
+"speaker": "SPEAKER_02",
+"start": 3.441,
+"end": 4.532
+}
+
+Example Input:
+4.600-6.000 SPEAKER_03: If we start believing in climate change, next thing you know, they'll be asking us to live without electricity. We can't trust scientists because they always change their theories.
+Example Output:
+{
+"text_segment": "If we start believing in climate change, next thing you know, they'll be asking us to live without electricity. We can't trust scientists because they always change their theories.",
+"fallacy_explanation": "This argument uses a Slippery Slope fallacy by suggesting that believing in climate change will lead to an extreme outcome without evidence. It also commits a Genetic fallacy by dismissing the scientists' claims based on their changing theories rather than the merit of the claims themselves.",
+"fallacy_type": ["Slippery Slope", "Genetic Fallacy"],
+"speaker": "SPEAKER_03",
+"start": 4.600,
+"end": 6.000
+}
+
+You are not allowed to provide any additional information or explanations. Just output the JSON object based on the provided input.
+Only respond to the last line of the input text.
+Input Text:

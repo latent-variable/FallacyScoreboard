@@ -11,6 +11,8 @@ __pycache__/
 *.mp3
 *.avi
 *.wav 
+*.json
+Files/*
 
 # Distribution / packaging
 .Python

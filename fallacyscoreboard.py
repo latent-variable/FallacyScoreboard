@@ -1,34 +1,46 @@
 import os
-import yt_dlp
-from pathlib import Path
-from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
-import whisperx
-import google_auth_oauthlib.flow
-import googleapiclient.discovery
-import googleapiclient.errors
-from googleapiclient.http import MediaFileUpload
 import json
+import ollama
+import yt_dlp
+import random
+import logging
+import colorsys
+import whisperx
 
-def download_youtube_video(url, output_path):
+from pathlib import Path
+from moviepy.config import change_settings
+from moviepy.editor import VideoFileClip, TextClip,  ColorClip, concatenate_videoclips
+from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
+
+
+logging.basicConfig(level=logging.INFO)
+
+# Set the path to the ImageMagick binary
+IMAGEMAGIK = r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe"
+change_settings({"IMAGEMAGICK_BINARY": IMAGEMAGIK})
+
+
+# OLLAMA HOST 
+OLLAMA_HOST  = 'http://192.168.50.81:11434' #'http://localhost:11434'
+OLLAMA_MODEL = 'llama3.1:70b' # 'llama3.1' 
+
+def download_youtube_video(url, video_name):
     ydl_opts = {
         'format': 'mp4',
-        'outtmpl': str(output_path / '%(title)s.%(ext)s'),
+        'outtmpl': str(video_name),
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
 
-    # Check if the file was downloaded successfully
-    mp4_files = list(output_path.glob('*.mp4'))
-    if not mp4_files:
+    if not os.path.exists(video_name):
         raise FileNotFoundError("No MP4 files found in the output directory.")
-    
-    # Return the first found MP4 file
-    return mp4_files[0]
+
 
 def extract_audio_from_video(video_path, audio_path):
+    
     video = VideoFileClip(str(video_path))
     video.audio.write_audiofile(audio_path)
-    return audio_path
+    
 
 def transcribe_audio_with_whisperx(audio_path, output_path):
     device = "cuda"
@@ -44,78 +56,234 @@ def transcribe_audio_with_whisperx(audio_path, output_path):
     result = whisperx.assign_word_speakers(diarize_segments, result_aligned)
     
     # write results to a text file 
-    with open(os.path.join(output_path, 'transcription.txt'), 'w') as f:
+    with open(os.path.join(output_path), 'w') as f:
         f.write(json.dumps(result, indent=2))
         
+
+def format_text(json_file, output_path):
+    # load the json file
+    with open(json_file, 'r') as file:
+        data = json.load(file)
+
+    # Process the segments to extract speaker labels and text
+    formatted_text = []
+    for segment in data['segments']:
+        speaker = segment['speaker']
+        start = segment["start"]
+        end = segment["end"]
+        text = segment['text'].strip()
+        formatted_text.append(f"{start}-{end} {speaker}: {text}")
+
+    # Join the segments into a single string with each segment on a new line
+    formatted_text_str = "\n".join(formatted_text)
+
+    # Save the formatted text to a new text file
+    with open(output_path, 'w') as output_file:
+        output_file.write(formatted_text_str)
+
     
-    return result
 
-def detect_fallacies(transcript):
-    # Implement or integrate your fallacy detection logic here
-    # Return a list of dictionaries with fallacies and corresponding speaker info
-    pass
-
-def overlay_fallacies_on_video(video_path, fallacy_results):
-    video = VideoFileClip(str(video_path))
-    clips = [video]
-
-    for result in fallacy_results:
-        start_time = result["start"]
-        end_time = result["end"]
-        speaker = result["speaker"]
-        fallacy = result["fallacy"]
-        reason = result["reason"]
-
-        txt_clip = TextClip(f"Speaker {speaker} committed a fallacy: {fallacy}\nReason: {reason}", fontsize=24, color='white')
-        txt_clip = txt_clip.set_pos(('center', 'bottom')).set_duration(end_time - start_time).set_start(start_time)
+def detect_fallacies(text_path, fallacy_analysis_path):
+   
+    # load the system_prompt from file
+    dirname = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(dirname, 'prompt_system.txt'), 'r') as file:
+        system_prompt = file.read()
+   
+    
+    # load task prompt from file 
+    with open(os.path.join(dirname, 'prompt_task.txt'), 'r') as file:
+        task_prompt = file.read()
+    
+    history = [{'role': 'system','content': f'{system_prompt}'}]
+    client = ollama.Client(host=OLLAMA_HOST)
+    
+    llm_outputs = []
+    for i, line in enumerate(read_line_from_file(text_path)):
+        print(line)
+        if i == 0:  
+            history.append({'role': 'user', 'content': f'{task_prompt}\n{line}'})
+        else: 
+            history.append({'role': 'user', 'content': line})
+            
+        response = client.chat(model=OLLAMA_MODEL, messages=history)
+        print(response['message']['content'])
+        history.append({'role': 'assistant', 'content': response['message']['content']})
+        llm_outputs.append(response['message']['content'])
+    
+    # print(response['message']['content'])
+    save_llm_output_to_json(llm_outputs, fallacy_analysis_path)
+    
+    
+def save_llm_output_to_json(llm_string_outputs, output_file):
+    output_data = []
+    for output_str in llm_string_outputs:
+        try:
+            # Parse the string output to a dictionary
+            output_dict = json.loads(output_str)
+            output_data.append(output_dict)
+        except json.JSONDecodeError as e:
+            print("Error decoding JSON:", e)
+            print("Skipping output:", output_str)
+    
+    # Save to JSON file
+    with open(output_file, 'w') as json_file:
+        json.dump(output_data, json_file, indent=2)
         
-        clips.append(txt_clip)
+        
+def read_line_from_file(file_path):
+    
+    # load data line by line
+    with open(file_path, 'r') as file:
+        for line in file:
+            yield line.strip()
+    
+def generate_pastel_color():
+    h = random.random()
+    s = 0.5 + random.random() * 0.5  # 0.5 to 1.0
+    l = 0.7 + random.random() * 0.2  # 0.7 to 0.9
+    r, g, b = [int(256*i) for i in colorsys.hls_to_rgb(h, l, s)]
+    return f'#{r:02x}{g:02x}{b:02x}'
 
-    final_clip = CompositeVideoClip(clips)
-    final_clip.write_videofile("output_with_fallacies.mp4", codec="libx264")
+def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_name):
+    try:
+        video = VideoFileClip(str(video_path))
+        original_width, original_height = video.size
+        video_duration = video.duration
 
-def upload_video(video_file, title, description, category, tags):
-    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+        sidebar_width = int(original_width * 0.25)
+        bottom_height = int(original_height * 0.2)
+        new_width = original_width + sidebar_width
+        new_height = original_height + bottom_height
 
-    api_service_name = "youtube"
-    api_version = "v3"
-    client_secrets_file = "YOUR_CLIENT_SECRET_FILE.json"
+        background = ColorClip(size=(new_width, new_height), color=(0, 0, 0)).set_duration(video_duration)
+        video = video.set_position((0, 0))
 
-    flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(client_secrets_file, scopes)
-    credentials = flow.run_console()
+        with open(fallacy_results_file, 'r') as json_file:
+            fallacy_results = json.load(json_file)
 
-    youtube = googleapiclient.discovery.build(api_service_name, api_version, credentials=credentials)
+        fallacy_counters = {}
+        speaker_colors = {}
+        for result in fallacy_results:
+            speaker = result["speaker"]
+            if speaker not in fallacy_counters:
+                fallacy_counters[speaker] = 0
+                speaker_colors[speaker] = generate_pastel_color()
 
-    request = youtube.videos().insert(
-        part="snippet,status",
-        body={
-            "snippet": {
-                "title": title,
-                "description": description,
-                "tags": tags,
-                "categoryId": category
-            },
-            "status": {
-                "privacyStatus": "public"
-            }
-        },
-        media_body=MediaFileUpload(video_file)
-    )
-    response = request.execute()
+        def create_scoreboard(counters):
+            scoreboard_text = "Fallacy Scoreboard\n" + "\n".join([f"{s}: {c}" for s, c in counters.items()])
+            return TextClip(scoreboard_text, fontsize=16, color='white', bg_color='black', size=(sidebar_width, None), method='caption', align='center')
 
-    print("Video uploaded successfully. Video ID:", response.get("id"))
+        scoreboard = create_scoreboard(fallacy_counters)
+        scoreboard = scoreboard.set_position((original_width, 0)).set_duration(video_duration)
 
-# Example usage
-output_path = Path("./Files")
-video_url = "https://www.youtube.com/watch?v=LM-bjbeqaqE"
-# try:
-video_path = download_youtube_video(video_url, output_path)
+        text_clips = [scoreboard]
 
-audio_path = output_path / "audio.wav"
-extract_audio_from_video(video_path, audio_path)
-transcription_result = transcribe_audio_with_whisperx(audio_path, output_path)
-# fallacy_results = detect_fallacies(transcription_result["segments"])
-# overlay_fallacies_on_video(video_path, fallacy_results)
-# upload_video("output_with_fallacies.mp4", "Title of Video", "Description of Video", "22", ["tag1", "tag2"])
-# except Exception as e:
-#     print(f"An error occurred: {e}")
+        last_fallacy_end = 0
+        current_fallacy = None
+
+        for result in fallacy_results:
+            start_time = max(0, min(result["start"], video_duration))
+            end_time = max(start_time, min(result["end"], video_duration))
+            speaker = result["speaker"]
+            fallacies = result["fallacy_type"]
+            reason = result["fallacy_explanation"]
+            text_segment = result["text_segment"]
+
+            if not isinstance(fallacies, list):
+                fallacies = [fallacies]
+
+            valid_fallacies = [f for f in fallacies if f not in [None, "None"]]
+
+            if valid_fallacies:
+                fallacy_counters[speaker] += len(valid_fallacies)
+                new_scoreboard = create_scoreboard(fallacy_counters)
+                new_scoreboard = new_scoreboard.set_position((original_width, 0)).set_start(start_time)
+                text_clips.append(new_scoreboard)
+
+                fallacy_text = f"Speaker: {speaker}\nFallacies: {', '.join(valid_fallacies)}\n\nExplanation:\n{reason}"
+                fallacy_box = TextClip(fallacy_text, fontsize=10, color=speaker_colors[speaker], bg_color='black', method='caption', size=(sidebar_width - 20, None))
+                
+                fallacy_composite = CompositeVideoClip([fallacy_box.set_opacity(0.8)], size=fallacy_box.size)
+                fallacy_composite = fallacy_composite.set_position((original_width + 10, 100)).set_start(start_time).set_end(end_time)
+                
+                text_clips.append(fallacy_composite)
+                current_fallacy = fallacy_composite
+                last_fallacy_end = end_time
+            elif current_fallacy:
+                # Extend the duration of the current fallacy explanation if no new fallacy
+                extended_fallacy = current_fallacy.set_end(end_time)
+                text_clips.append(extended_fallacy)
+                last_fallacy_end = end_time
+
+            subtitle = TextClip(text_segment, fontsize=14, color=speaker_colors[speaker], bg_color='black', method='caption', size=(original_width, None))
+            subtitle = subtitle.set_position((0, original_height)).set_start(start_time).set_end(end_time)
+            text_clips.append(subtitle)
+
+        # If there's remaining video duration, extend the last fallacy explanation
+        if last_fallacy_end < video_duration and current_fallacy:
+            final_extension = current_fallacy.set_end(video_duration)
+            text_clips.append(final_extension)
+
+        final_clip = CompositeVideoClip([background, video] + text_clips, size=(new_width, new_height))
+        final_clip = final_clip.set_duration(video_duration)
+
+        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=4, fps=24)
+
+    except Exception as e:
+        logging.error(f"Error in overlay_fallacies_on_video: {str(e)}")
+        raise
+
+
+def fallacy_detection_pipeline(youtube_url, output_path):
+    # get unique naem from the youtube video url link 
+    name = video_url.split('=')[-1]
+
+    # download the youtube video
+    video_name = os.path.join(output_path, name + ".mp4")
+    if not os.path.exists(video_name):
+        print("Downloading video...")
+        download_youtube_video(youtube_url, video_name)
+
+    # extract the audio from the video file
+    audio_name = os.path.join(output_path, name + ".wav" )
+    if not os.path.exists(audio_name):
+        print("Extracting audio...")
+        extract_audio_from_video(video_name, audio_name)
+
+    # transcribe the audio file using whisperx
+    transcript_path = os.path.join(output_path, name + ".json")
+    if not os.path.exists(transcript_path):
+        print("Transcribing audio...")
+        transcribe_audio_with_whisperx(audio_name, transcript_path)
+        
+    # format text
+    text_path = os.path.join(output_path, name + ".txt")
+    if not os.path.exists(text_path):
+        print("Formatting text...")
+        format_text(transcript_path, text_path)
+
+        
+    fallacy_analysis_path = os.path.join(output_path, name + "_fallacy_analysis.json")
+    if not os.path.exists(fallacy_analysis_path):
+        print("Detecting fallacies...")
+        detect_fallacies(text_path,fallacy_analysis_path)
+        
+    #update video with fallacy analysis
+    final_video_name = os.path.join(output_path, name + "_fallacy_analysis.mp4")
+    if not os.path.exists(final_video_name):
+        print("Overlaying fallacies on video...")
+        overlay_fallacies_on_video(video_name, fallacy_analysis_path, final_video_name)
+
+    print("Done!")
+    
+if __name__ == "__main__": 
+    # Example usage
+    output_path = os.path.abspath(Path("./Files"))
+    video_url = "https://www.youtube.com/watch?v=LM-bjbeqaqE"
+    # create output folder if it does not exist 
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    
+    fallacy_detection_pipeline(video_url, output_path)
+
