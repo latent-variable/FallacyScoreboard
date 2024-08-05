@@ -39,7 +39,7 @@ Click the image above to watch a demonstration of FallacyScoreboard in action!
 4. **Install ImageMagick**:
    FallacyScoreboard uses MoviePy, which requires ImageMagick. Make sure to install ImageMagick and set the path in the script:
    ```python
-   change_settings({"IMAGEMAGICK_BINARY": r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe"})
+   change_settings({"IMAGEMAGICK_BINARY": r"path/to/your/ImageMagick-7.1.1-Q16-HDRI/magick.exe"})
    ```
 
 ## Usage
