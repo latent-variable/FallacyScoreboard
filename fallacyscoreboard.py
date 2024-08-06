@@ -21,8 +21,8 @@ change_settings({"IMAGEMAGICK_BINARY": IMAGEMAGIK})
 YOUR_HF_TOKEN = None
 
 # OLLAMA host & model
-OLLAMA_HOST  = 'http://localhost:11434' #'http://localhost:11434'
-OLLAMA_MODEL = 'llama3.1:70b' # 'llama3.1' 
+OLLAMA_HOST  = 'http://192.168.50.81:11434' #'http://localhost:11434'
+OLLAMA_MODEL = 'gemma2:27b' #'llama3.1:70b' # 'llama3.1' 
 
 def download_youtube_video(url, video_name):
     ydl_opts = {
@@ -101,16 +101,15 @@ def detect_fallacies(text_path, fallacy_analysis_path):
     history = [{'role': 'system','content': f'{system_prompt}'}]
     client = ollama.Client(host=OLLAMA_HOST)
     
+    
     llm_outputs = []
-    for i, line in enumerate(read_line_from_file(text_path)):
-        print(line)
-        if i == 0:  
-            history.append({'role': 'user', 'content': f'{task_prompt}\n{line}'})
-        else: 
-            history.append({'role': 'user', 'content': line})
-            
+    for line in read_line_from_file(text_path):
+        history.append({'role': 'user', 'content': line})
         response = client.chat(model=OLLAMA_MODEL, messages=history)
+        token_count = response['eval_count'] + response['prompt_eval_count']
+        print('token_count', token_count)
         print(response['message']['content'])
+        print(line)
         history.append({'role': 'assistant', 'content': response['message']['content']})
         llm_outputs.append(response['message']['content'])
     
