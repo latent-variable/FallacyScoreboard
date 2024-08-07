@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import ollama
 import yt_dlp
 import random
@@ -8,7 +9,7 @@ import whisperx
 
 from pathlib import Path
 from moviepy.config import change_settings
-from moviepy.editor import VideoFileClip, TextClip,  ColorClip, concatenate_videoclips
+from moviepy.editor import VideoFileClip, TextClip,  ColorClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
 
@@ -84,62 +85,121 @@ def format_text(json_file, output_path):
     with open(output_path, 'w') as output_file:
         output_file.write(formatted_text_str)
 
-    
 
 def detect_fallacies(text_path, fallacy_analysis_path):
-   
-    # load the system_prompt from file
+    # Load the system_prompt from file
     dirname = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(dirname, 'prompt_system.txt'), 'r') as file:
         system_prompt = file.read()
-   
+
     
-    # load task prompt from file 
-    with open(os.path.join(dirname, 'prompt_task.txt'), 'r') as file:
-        task_prompt = file.read()
-    
-    history = [{'role': 'system','content': f'{system_prompt}'}]
+    history = [{'role': 'system', 'content': f'{system_prompt}'}]
     client = ollama.Client(host=OLLAMA_HOST)
-    
     
     llm_outputs = []
     for line in read_line_from_file(text_path):
-        history.append({'role': 'user', 'content': line})
-        response = client.chat(model=OLLAMA_MODEL, messages=history)
-        token_count = response['eval_count'] + response['prompt_eval_count']
-        print('token_count', token_count)
-        print(response['message']['content'])
-        print(line)
-        history.append({'role': 'assistant', 'content': response['message']['content']})
-        llm_outputs.append(response['message']['content'])
+        prompt_ollama(line, history, llm_outputs, client)
     
-    # print(response['message']['content'])
     save_llm_output_to_json(llm_outputs, fallacy_analysis_path)
-    
-    
-def save_llm_output_to_json(llm_string_outputs, output_file):
-    output_data = []
-    for output_str in llm_string_outputs:
-        try:
-            # Parse the string output to a dictionary
-            output_dict = json.loads(output_str)
-            output_data.append(output_dict)
-        except json.JSONDecodeError as e:
-            print("Error decoding JSON:", e)
-            print("Skipping output:", output_str)
-    
-    # Save to JSON file
-    with open(output_file, 'w') as json_file:
-        json.dump(output_data, json_file, indent=2)
+
+def prompt_ollama(line, history, llm_outputs, client, pre_prompt='Input Text:'):
+    max_retries = 3
+    retry_count = 0
+    valid_output = False
+
+    while not valid_output and retry_count < max_retries:
+        history.append({'role': 'user', 'content': f'{pre_prompt} {line}'})
         
+        # Start timing
+        start_time = time.time()
         
+        response = client.chat(model=OLLAMA_MODEL, messages=history, options={'temperature': 0.5, 'num_ctx': 4048})
+        
+        # End timing
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        token_count = response['eval_count'] + response['prompt_eval_count']
+        print(f'token_count: {token_count}, duration: {duration:.2f} seconds')
+        
+        llm_response = response['message']['content']
+
+        # Ensure the LLM response is properly formatted by stripping to the JSON content
+        json_response = extract_json_from_text(llm_response)
+
+        if json_response:
+            llm_response = json_response
+            valid_output, error_message = validate_llm_output(llm_response)
+            if valid_output:
+                history.append({'role': 'assistant', 'content': json.dumps(llm_response)})
+                llm_outputs.append(llm_response)  # Append the JSON object directly
+            else:
+                retry_count += 1
+                print(f"Invalid format for response: {llm_response}")
+                print(f"Error: {error_message}")
+                history.append({'role': 'user', 'content': f"The previous response was invalid because: {error_message}. Please correct it."})
+        else:
+            retry_count += 1
+            print(f"Response is not properly formatted JSON: {llm_response}")
+            history.append({'role': 'user', 'content': "The previous response was not properly formatted JSON. Please correct it."})
+
+    if not valid_output:
+        print(f"Failed to get a valid response after {max_retries} attempts")
+
+    return history, llm_outputs
+
+def extract_json_from_text(text):
+    try:
+        # Find the first '{' and the last '}' to ensure we are only taking the JSON content
+        start = text.find('{')
+        end = text.rfind('}')
+        if start != -1 and end != -1:
+            json_content = text[start:end + 1]
+            return json.loads(json_content)
+        else:
+            return None
+    except json.JSONDecodeError:
+        return None
+
+def validate_llm_output(output):
+    try:
+        data = output
+        required_fields = ["text_segment", "fallacy_explanation", "fallacy_type", "speaker", "start", "end"]
+        
+        # Check if all required fields are present
+        for field in required_fields:
+            if field not in data:
+                return False, f"Missing field: {field}"
+
+        # Check if fallacy_type is a list
+        if not isinstance(data["fallacy_type"], list):
+            return False, "fallacy_type should be a list"
+
+        # Validate data types of fields
+        if not isinstance(data["text_segment"], str):
+            return False, "text_segment should be a string"
+        if not isinstance(data["fallacy_explanation"], str):
+            return False, "fallacy_explanation should be a string"
+        if not isinstance(data["speaker"], str):
+            return False, "speaker should be a string"
+        if not isinstance(data["start"], (int, float)):
+            return False, "start should be a number"
+        if not isinstance(data["end"], (int, float)):
+            return False, "end should be a number"
+
+        return True, ""
+    except (json.JSONDecodeError, TypeError):
+        return False, "Invalid JSON format"
+
 def read_line_from_file(file_path):
-    
-    # load data line by line
     with open(file_path, 'r') as file:
         for line in file:
             yield line.strip()
-    
+
+def save_llm_output_to_json(llm_outputs, output_file):
+    with open(output_file, 'w') as json_file:
+        json.dump(llm_outputs, json_file, indent=2)
+        
 def generate_pastel_color():
     h = random.random()
     s = 0.5 + random.random() * 0.5  # 0.5 to 1.0
@@ -291,7 +351,7 @@ def fallacy_detection_pipeline(youtube_url, output_path):
 if __name__ == "__main__": 
     # Example usage
     output_path = os.path.abspath(Path("./Files"))
-    video_url = "https://www.youtube.com/watch?v=Z3eCCbVr3EU"
+    video_url = 'https://www.youtube.com/watch?v=LM-bjbeqaqE' #"https://www.youtube.com/watch?v=Z3eCCbVr3EU"
     # create output folder if it does not exist 
     if not os.path.exists(output_path):
         os.makedirs(output_path)
