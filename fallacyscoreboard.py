@@ -12,8 +12,6 @@ from moviepy.config import change_settings
 from moviepy.editor import VideoFileClip, TextClip,  ColorClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
-
-
 # Set the path to the ImageMagick binary
 IMAGEMAGIK = r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe"
 change_settings({"IMAGEMAGICK_BINARY": IMAGEMAGIK})
@@ -38,12 +36,9 @@ def download_youtube_video(url, video_name):
     if not os.path.exists(video_name):
         raise FileNotFoundError("No MP4 files found in the output directory.")
 
-
 def extract_audio_from_video(video_path, audio_path):
-    
     video = VideoFileClip(str(video_path))
     video.audio.write_audiofile(audio_path)
-    
 
 def transcribe_audio_with_whisperx(audio_path, output_path):
     device = "cuda"
@@ -61,7 +56,6 @@ def transcribe_audio_with_whisperx(audio_path, output_path):
     # write results to a text file 
     with open(os.path.join(output_path), 'w') as f:
         f.write(json.dumps(result, indent=2))
-        
 
 def format_text(json_file, output_path):
     # load the json file
@@ -86,34 +80,57 @@ def format_text(json_file, output_path):
     with open(output_path, 'w') as output_file:
         output_file.write(formatted_text_str)
 
-
 def initialize_history():
     # Load the system_prompt from file
     dirname = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(dirname, 'prompt_system.txt'), 'r') as file:
         system_prompt = file.read()
 
-    
     history = [{'role': 'system', 'content': f'{system_prompt}'}]
     
     return history
 
-def detect_fallacies(text_path, fallacy_analysis_path):
+def detect_fallacies(text_path, fallacy_analysis_path, temp_file):
     history = initialize_history()
-    
     client = ollama.Client(host=OLLAMA_HOST)
     
     llm_outputs = []
+    
+    # Load from temp file if it exists
+    if os.path.exists(temp_file):
+        with open(temp_file, 'r') as f:
+            temp_data = json.load(f)
+            history = temp_data.get('history', history)
+            llm_outputs = temp_data.get('llm_outputs', [])
+            processed_lines = temp_data.get('processed_lines', [])
+    else:
+        processed_lines = []
+
     for line in read_line_from_file(text_path):
+        if line in processed_lines:
+            continue
         history, llm_outputs = prompt_ollama(line, history, llm_outputs, client)
+        processed_lines.append(line)
+        save_intermediate_results(temp_file, history, llm_outputs, processed_lines)
     
     save_llm_output_to_json(llm_outputs, fallacy_analysis_path)
+    # Remove the temp file after completion
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
 
 def prompt_ollama(line, history, llm_outputs, client, pre_prompt='Input Text:'):
     max_retries = 3
     retry_count = 0
     valid_output = False
-
+    
+    # Extract metadata from the line
+    try:
+        start = float(line.split()[0].split('-')[0])
+        end = float(line.split()[0].split('-')[1])
+        speaker = line.split()[1].replace(':', '')
+    except (IndexError, ValueError):
+        start, end, speaker = 0, 0, 'SPEAKER_00'
+        
     while not valid_output and retry_count < max_retries:
         history.append({'role': 'user', 'content': f'{pre_prompt} {line}'})
         
@@ -136,10 +153,19 @@ def prompt_ollama(line, history, llm_outputs, client, pre_prompt='Input Text:'):
 
         if json_response:
             llm_response = json_response
-            valid_output, error_message = validate_llm_output(llm_response, line)
+            actual_text_segment = extract_text_segment(line)
+            corrected_response = correct_llm_output(llm_response, actual_text_segment, start, end, speaker)
+            valid_output, error_message = validate_llm_output(corrected_response, actual_text_segment)
             if valid_output:
                 history.append({'role': 'assistant', 'content': json.dumps(llm_response)})
                 llm_outputs.append(llm_response)  # Append the JSON object directly
+                
+                # Check if the token count exceeds and reset the context history if necessary
+                if token_count > OLLAMA_CONTEXT_SIZE * 0.9:
+                    history = initialize_history()
+                    history.append({'role': 'user', 'content': f'{pre_prompt} {line}'})
+                    history.append({'role': 'assistant', 'content': json.dumps(llm_response)})
+                    
             else:
                 retry_count += 1
                 print(f"Invalid format for response: {llm_response}")
@@ -150,14 +176,10 @@ def prompt_ollama(line, history, llm_outputs, client, pre_prompt='Input Text:'):
             print(f"Response is not properly formatted JSON: {llm_response}")
             history.append({'role': 'user', 'content': "The previous response was not properly formatted JSON. Please correct it."})
             
-         # Check if the token count exceeds and reset the context history if necessary
-        if token_count > OLLAMA_CONTEXT_SIZE * 0.9:
-            history = initialize_history()
-            history.append({'role': 'user', 'content': f'{pre_prompt} {line}'})
-            history.append({'role': 'assistant', 'content': json.dumps(llm_response)})
-            
     if not valid_output:
         print(f"Failed to get a valid response after {max_retries} attempts")
+        fallback_response = create_fallback_response(line, start, end, speaker)
+        llm_outputs.append(fallback_response)
 
     return history, llm_outputs
 
@@ -174,13 +196,30 @@ def extract_json_from_text(text):
     except json.JSONDecodeError:
         return None
 
+def correct_llm_output(response, text_segment, start, end, speaker):
+    response['text_segment'] = text_segment
+    response['start'] = start
+    response['end'] = end
+    response['speaker'] = speaker
+    return response
+
+def create_fallback_response(line, start, end, speaker):
+    return {
+        'text_segment': line,
+        'fallacy_explanation': "NA",
+        'fallacy_type': ["NA"],
+        'speaker': speaker,
+        'start': start,
+        'end': end
+    }
+
 def extract_text_segment(line):
     # Extract the text segment by splitting on the first colon and taking the second part
     parts = line.split(':', 1)
     if len(parts) > 1:
         return parts[1].strip()
     return line.strip()
-  
+
 def validate_llm_output(output, input_text_segment):
     try:
         data = output
@@ -207,12 +246,9 @@ def validate_llm_output(output, input_text_segment):
         if not isinstance(data["end"], (int, float)):
             return False, "end should be a number"
 
-        # Check if text_segment matches the input text segment
-        input_text_segment = extract_text_segment(input_text_segment)
+        # Check if text_segment matches the input text segment content
         if data["text_segment"].strip() != input_text_segment.strip():
-            print("Expected:", input_text_segment)
-            print("Got:", data["text_segment"])
-            return False, "text_segment does not match the input text segment"
+            return False, "text_segment does not match the input text segment content"
 
         return True, ""
     except (json.JSONDecodeError, TypeError):
@@ -226,7 +262,16 @@ def read_line_from_file(file_path):
 def save_llm_output_to_json(llm_outputs, output_file):
     with open(output_file, 'w') as json_file:
         json.dump(llm_outputs, json_file, indent=2)
-        
+
+def save_intermediate_results(temp_file, history, llm_outputs, processed_lines):
+    temp_data = {
+        'history': history,
+        'llm_outputs': llm_outputs,
+        'processed_lines': processed_lines
+    }
+    with open(temp_file, 'w') as f:
+        json.dump(temp_data, f, indent=2)
+
 def generate_pastel_color():
     h = random.random()
     s = 0.5 + random.random() * 0.5  # 0.5 to 1.0
@@ -332,10 +377,8 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
     except Exception as e:
         print(f"An error occurred: {str(e)}")
 
-
 def fallacy_detection_pipeline(youtube_url, output_path):
-    # get unique naem from the youtube video url link 
-    name = video_url.split('=')[-1]
+    name = youtube_url.split('=')[-1]
 
     # download the youtube video
     video_name = os.path.join(output_path, name + ".mp4")
@@ -361,7 +404,6 @@ def fallacy_detection_pipeline(youtube_url, output_path):
     else:
         print("Audio already transcribed.")
         
-        
     # format text
     text_path = os.path.join(output_path, name + ".txt")
     if not os.path.exists(text_path):
@@ -370,11 +412,11 @@ def fallacy_detection_pipeline(youtube_url, output_path):
     else:
         print("Text already formatted.")
 
-        
     fallacy_analysis_path = os.path.join(output_path, name + "_fallacy_analysis.json")
+    temp_file = os.path.join(output_path, name + "_temp.json")
     if not os.path.exists(fallacy_analysis_path):
         print("Detecting fallacies...")
-        detect_fallacies(text_path,fallacy_analysis_path)
+        detect_fallacies(text_path, fallacy_analysis_path, temp_file)
     else:
         print("Fallacies already detected.")
         
@@ -387,14 +429,11 @@ def fallacy_detection_pipeline(youtube_url, output_path):
         print("Video already updated with fallacies.")
 
     print("Done!")
-    
+
 if __name__ == "__main__": 
-    # Example usage
     output_path = os.path.abspath(Path("./Files"))
-    video_url = 'https://www.youtube.com/watch?v=LM-bjbeqaqE' #"https://www.youtube.com/watch?v=Z3eCCbVr3EU"
-    # create output folder if it does not exist 
+    video_url = "https://www.youtube.com/watch?v=Z3eCCbVr3EU"
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     
     fallacy_detection_pipeline(video_url, output_path)
-
