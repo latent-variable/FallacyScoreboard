@@ -13,6 +13,7 @@ __pycache__/
 *.wav 
 *.json
 Files/*
+*.gif
 
 # Distribution / packaging
 .Python

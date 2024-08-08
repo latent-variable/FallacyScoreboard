@@ -8,6 +8,7 @@ Fallacy Type: A list of the specific types of logical fallacies (e.g., Ad Homine
 Speaker: The individual who made the statement (if applicable).
 Start: The starting point in the text where the fallacy begins.
 End: The ending point in the text where the fallacy ends.
+Giphy Search Query: A search query for finding a relevant GIF based on the discussion. It can be left empty or be something related. Remember the point of this feature is to be silly and to make political debates more fun for a general audience, so ideally the references are culturally relevant memes.
 
 Note: Avoid running fallacy detection on questions being asked.
 
@@ -20,7 +21,8 @@ Example Output:
 "fallacy_type": ["None"],
 "speaker": "SPEAKER_00",
 "start": 0.000,
-"end": 0.511
+"end": 0.511,
+"gif_query": ""
 }
 
 Example Input:
@@ -32,7 +34,8 @@ Example Output:
 "fallacy_type": ["None"],
 "speaker": "SPEAKER_01",
 "start": 0.600,
-"end": 1.333
+"end": 1.333,
+"gif_query": ""
 }
 
 Example Input:
@@ -44,7 +47,8 @@ Example Output:
 "fallacy_type": ["None"],
 "speaker": "SPEAKER_01",
 "start": 1.500,
-"end": 3.100
+"end": 3.100,
+"gif_query": ""
 }
 
 Example Input:
@@ -56,7 +60,8 @@ Example Output:
 "fallacy_type": ["Ad Hominem"],
 "speaker": "SPEAKER_02",
 "start": 3.441,
-"end": 4.532
+"end": 4.532,
+"gif_query": "scientist myself"
 }
 
 Example Input:
@@ -68,7 +73,8 @@ Example Output:
 "fallacy_type": ["Slippery Slope", "Genetic Fallacy"],
 "speaker": "SPEAKER_03",
 "start": 4.600,
-"end": 6.000
+"end": 6.000,
+"gif_query": "domino effect"
 }
 
 You are not allowed to provide any additional information or explanations. Just output the JSON object based on the provided input.
