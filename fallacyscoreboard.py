@@ -436,7 +436,7 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
                 extended_fallacy = current_fallacy.set_end(end_time)
                 text_clips.append(extended_fallacy)
                 
-            gif_dir = os.path.join(os.path.dirname(final_video_name), 'gifs')
+            gif_dir = os.path.join(os.path.dirname(os.path.dirname(final_video_name)), 'gifs')
             if not os.path.exists(gif_dir):
                 os.makedirs(gif_dir)
             gif_path = os.path.join(gif_dir, f"{gif_query}.gif")
@@ -469,6 +469,10 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
 def fallacy_detection_pipeline(youtube_url, output_path):
     name = youtube_url.split('=')[-1]
 
+    output_path = os.path.join(output_path, name)
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+        
     # download the youtube video
     video_name = os.path.join(output_path, name + ".mp4")
     if not os.path.exists(video_name):
