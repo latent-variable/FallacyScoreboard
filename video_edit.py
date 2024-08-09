@@ -225,9 +225,27 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
         speakers = [result["speaker"] for result in fallacy_results if 'SPEAKER' in result["speaker"]]
         unique_speakers = list(set(speakers))
         speaker_colors = dict(zip(unique_speakers, generate_pastel_colors(len(unique_speakers))))
-
+        
         fallacy_counters = {}
-        text_clips = []
+        start_end_times = []  # Store start and end times
+        for result in fallacy_results:
+            speaker = result["speaker"]
+            if speaker not in fallacy_counters and 'SPEAKER' in speaker:
+                fallacy_counters[speaker] = 0
+
+            start_time = max(0, min(result["start"], video_duration))
+            end_time = max(start_time, min(result["end"], video_duration))
+            start_end_times.append((start_time, end_time))
+            
+            
+        def create_scoreboard(fallacy_counters):
+            scoreboard_text = "Fallacy Scoreboard\n" + "\n".join([f"{s}: {c}" for s, c in fallacy_counters.items()])
+            return TextClip(scoreboard_text, fontsize=main_font_size, color='white', bg_color='black', size=(sidebar_width, black_bar_height - 10), method='caption', align='West', stroke_color='white', stroke_width=1.0)
+
+        scoreboard = create_scoreboard(fallacy_counters)
+        scoreboard = scoreboard.set_position((10, 10)).set_duration(video_duration)
+
+        text_clips = [scoreboard]
         gif_clips = []
         current_fallacy = None
 
@@ -246,7 +264,14 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
             valid_fallacies = [f for f in fallacies if f not in [None, "None"]]
 
             if valid_fallacies and 'SPEAKER' in speaker:
+                # Update fallacy counters
                 fallacy_counters[speaker] = fallacy_counters.get(speaker, 0) + len(valid_fallacies)
+                
+                # Create a new scoreboard only when a new fallacy is detected
+                scoreboard = create_scoreboard(fallacy_counters)
+                scoreboard = scoreboard.set_position((10, 10)).set_start(start_time)
+                text_clips.append(scoreboard)
+
                 fallacy_text = f"Speaker: {speaker}\nFallacies: {', '.join(valid_fallacies)}\n\nExplanation:\n{reason}"
 
                 fallacy_box = TextClip(fallacy_text, fontsize=subtitle_font_size, color=speaker_colors[speaker], bg_color='black', method='caption', align='West', size=(new_width - 20, None))
@@ -269,12 +294,8 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
                 gif_clips.append(gif_clip)
 
             subtitle = TextClip(text_segment, fontsize=subtitle_font_size, color=speaker_colors[speaker], bg_color='black', method='caption', size=(new_width, None))
-            subtitle = subtitle.set_position((0, original_height+ black_bar_height - 2*subtitle.h)).set_start(start_time).set_end(end_time)
+            subtitle = subtitle.set_position((0, original_height + black_bar_height - 2 * subtitle.h)).set_start(start_time).set_end(end_time)
             text_clips.append(subtitle)
-
-        scoreboard = create_scoreboard(fallacy_counters, sidebar_width, black_bar_height, main_font_size)
-        scoreboard = scoreboard.set_position((10, 10)).set_duration(video_duration)
-        text_clips.append(scoreboard)
 
         final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height))
         final_clip = final_clip.set_duration(video_duration)
@@ -287,17 +308,14 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
 def add_gif_to_video_with_black_bars(black_bar_height, gif_path, start_time, end_time, new_width):
     gif = VideoFileClip(gif_path)
     # Resize GIF to fit within the black bar area
-    gif = gif.resize(height=black_bar_height // 2)
+    gif = gif.resize(height=black_bar_height // 2.5)
 
     # Position the GIF in the top-right corner of the top black bar
-    position = (new_width - gif.size[0] - 10, black_bar_height - gif.size[1])
+    position = (new_width - gif.size[0] - 10, black_bar_height - gif.size[1] -10)
 
     # Loop the GIF to match the desired duration
     gif = gif.loop(duration=end_time - start_time).set_start(start_time).set_position(position)
 
     return gif
 
-def create_scoreboard(fallacy_counters, sidebar_width, black_bar_height, font_size):
-    scoreboard_text = "Fallacy Scoreboard\n" + "\n".join([f"{s}: {c}" for s, c in fallacy_counters.items()])
-    return TextClip(scoreboard_text, fontsize=font_size, color='white', bg_color='black', size=(sidebar_width, black_bar_height - 10), method='caption', align='West', stroke_color='white', stroke_width=1.0)
 
