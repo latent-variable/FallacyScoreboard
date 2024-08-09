@@ -192,7 +192,7 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
         final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height))
         final_clip = final_clip.set_duration(video_duration)
 
-        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=16, fps=24)
+        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=4, fps=24, ffmpeg_params=['-c:v', 'h264_nvenc'])
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
@@ -300,7 +300,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
         final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height))
         final_clip = final_clip.set_duration(video_duration)
 
-        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=16, fps=24)
+        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=4, fps=24, ffmpeg_params=['-c:v', 'h264_nvenc'], )
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")

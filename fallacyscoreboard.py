@@ -135,7 +135,7 @@ def fallacy_detection_pipeline(youtube_url, output_path):
     final_video_name = os.path.join(output_path, name + "_fallacy_analysis.mp4")
     if not os.path.exists(final_video_name):
         print("Overlaying fallacies on video...")
-        # overlay_fallacies_on_video(video_name, fallacy_analysis_path, final_video_name)
+        overlay_fallacies_on_video(video_name, fallacy_analysis_path, final_video_name)
     else:
         print("Video already updated with fallacies.")
         
