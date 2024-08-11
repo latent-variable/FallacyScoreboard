@@ -147,12 +147,16 @@ def fallacy_detection_pipeline(youtube_url, output_path):
         overlay_fallacies_on_vertical_video_with_bars(video_name, fallacy_analysis_path, final_vertical_video_name)
     else:
         print("Vertical video already updated with fallacies.")
+        
+    # TODO: Create a dashboard to visualize the fallacy analysis results
+    # This could include charts, graphs, and other visualizations to help users understand the results of the fallacy analysis
+    
 
     print("Done!")
 
 if __name__ == "__main__": 
     output_path = os.path.abspath(Path("./Files"))
-    video_url = 'https://www.youtube.com/watch?v=LM-bjbeqaqE' #"https://www.youtube.com/watch?v=Z3eCCbVr3EU"
+    video_url = "https://www.youtube.com/watch?v=jcsncEfRpgs" #'https://www.youtube.com/watch?v=LM-bjbeqaqE' 
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     
