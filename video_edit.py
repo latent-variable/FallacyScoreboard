@@ -141,7 +141,10 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
             fallacies = result["fallacy_type"]
             reason = result["fallacy_explanation"]
             text_segment = result["text_segment"]
-            gif_query = result["gif_query"]
+            if 'gif_query' in result:
+                gif_query = result["gif_query"]
+            else:
+                gif_query = ''
 
             if not isinstance(fallacies, list):
                 fallacies = [fallacies]

@@ -31,6 +31,7 @@ def detect_fallacies(text_path, fallacy_analysis_path, temp_file):
             history = temp_data.get('history', history)
             llm_outputs = temp_data.get('llm_outputs', [])
             processed_lines = temp_data.get('processed_lines', [])
+            print("Loaded from history from temp file:", temp_file)
     else:
         processed_lines = []
 
@@ -89,7 +90,7 @@ def prompt_ollama(line, history, llm_outputs, client, pre_prompt='Input Text:'):
                 llm_outputs.append(llm_response)  # Append the JSON object directly
                 
                 # Check if the token count exceeds and reset the context history if necessary
-                if token_count > OLLAMA_CONTEXT_SIZE * 0.9:
+                if token_count > OLLAMA_CONTEXT_SIZE * 0.8:
                     history = initialize_history()
                     history.append({'role': 'user', 'content': f'{pre_prompt} {line}'})
                     history.append({'role': 'assistant', 'content': json.dumps(llm_response)})
@@ -98,10 +99,12 @@ def prompt_ollama(line, history, llm_outputs, client, pre_prompt='Input Text:'):
                 retry_count += 1
                 print(f"Invalid format for response: {llm_response}")
                 print(f"Error: {error_message}")
+                history.append({'role': 'assistant', 'content': json.dumps(llm_response)})
                 history.append({'role': 'user', 'content': f"The previous response was invalid because: {error_message}. Please correct it."})
         else:
             retry_count += 1
             print(f"Response is not properly formatted JSON: {llm_response}")
+            history.append({'role': 'assistant', 'content': json.dumps(llm_response)})
             history.append({'role': 'user', 'content': "The previous response was not properly formatted JSON. Please correct it."})
             
     if not valid_output:
@@ -138,7 +141,8 @@ def create_fallback_response(line, start, end, speaker):
         'fallacy_type': ["NA"],
         'speaker': speaker,
         'start': start,
-        'end': end
+        'end': end,
+        'gif_query': ''
     }
 
 def extract_text_segment(line):
