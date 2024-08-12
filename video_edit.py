@@ -142,7 +142,7 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
             reason = result["fallacy_explanation"]
             text_segment = result["text_segment"]
             if 'gif_query' in result:
-                gif_query = result["gif_query"]
+                gif_query = result["gif_query"].lower()
             else:
                 gif_query = ''
 
@@ -174,7 +174,9 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
             if not os.path.exists(gif_dir):
                 os.makedirs(gif_dir)
             gif_path = os.path.join(gif_dir, f"{gif_query}.gif")
+            
             if not os.path.exists(gif_path):
+                gif_path = os.path.join(gif_dir, f"{gif_query}.gif")
                 gif_path = search_and_download_gif(gif_query, gif_path, limit=1)
                 
             if gif_path: # skip if just added the gif
