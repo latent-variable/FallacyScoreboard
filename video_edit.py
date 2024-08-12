@@ -144,6 +144,7 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
         current_fallacy = None
 
         for i, result in enumerate(fallacy_results):
+            print(f"\rProcessing fallacy {i+1}/{len(fallacy_results)}", end="")
             start_time = max(0, min(result["start"], video_duration))
             end_time = max(start_time, min(result["end"], video_duration))
             speaker = result["speaker"]
@@ -206,7 +207,7 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
         final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height))
         final_clip = final_clip.set_duration(video_duration)
 
-        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'hp'])
+        final_clip.write_videofile(final_video_name, codec="h264_nvenc", audio_codec="aac", fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'p1'])
 
 
     except Exception as e:
@@ -265,6 +266,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
         current_fallacy = None
 
         for i, result in enumerate(fallacy_results):
+            print(f"\rProcessing fallacy {i+1}/{len(fallacy_results)}", end="")
             start_time = max(0, min(result["start"], video_duration))
             end_time = max(start_time, min(result["end"], video_duration))
             speaker = result["speaker"]
@@ -318,7 +320,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
         final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height))
         final_clip = final_clip.set_duration(video_duration)
 
-        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=8, fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'hp'] )
+        final_clip.write_videofile(final_video_name, codec="h264_nvenc", audio_codec="aac", threads=8, fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'p1'] )
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")

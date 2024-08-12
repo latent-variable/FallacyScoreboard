@@ -156,7 +156,7 @@ def fallacy_detection_pipeline(youtube_url, output_path):
 
 if __name__ == "__main__": 
     output_path = os.path.abspath(Path("./Files"))
-    video_url = "https://www.youtube.com/watch?v=jcsncEfRpgs" #'https://www.youtube.com/watch?v=LM-bjbeqaqE' 
+    video_url = 'https://www.youtube.com/watch?v=LM-bjbeqaqE'  #"https://www.youtube.com/watch?v=jcsncEfRpgs" #
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     
