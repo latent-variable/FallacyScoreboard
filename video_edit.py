@@ -16,7 +16,15 @@ def read_config(config_file="config.json"):
 
 GIPHY_API_KEY, YOUR_HF_TOKEN = read_config()
 
+GIF_FAILURE_COUNT = 0
+
 def search_and_download_gif(query, output_path, limit = 5):
+    global GIF_FAILURE_COUNT
+    
+    if GIF_FAILURE_COUNT >= 10:
+        print("Too many failed attempts to download a gif. Please check your internet connection and try again later.")
+        return None
+    
     if query is None or output_path is None or query == "" or output_path == "":
         return None
     
@@ -39,6 +47,7 @@ def search_and_download_gif(query, output_path, limit = 5):
         
         return output_path
     else:
+        GIF_FAILURE_COUNT += 1
         print(f"No GIF found for the query: {query}")
         return None
 
