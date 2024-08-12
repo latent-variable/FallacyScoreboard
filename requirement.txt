@@ -1,5 +1,6 @@
 yt_dlp 
 ollama
+demjson3
 Pillow==9.5.0
 torch==2.0.0+cu118
 torchaudio==2.0.0+cu118

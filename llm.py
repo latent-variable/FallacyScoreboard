@@ -1,7 +1,10 @@
+import re
 import os
 import time
 import json
+import demjson3
 import ollama
+
 
 # OLLAMA host & model
 OLLAMA_HOST  = 'http://192.168.50.81:11434' #'http://localhost:11434'
@@ -114,17 +117,28 @@ def prompt_ollama(line, history, llm_outputs, client, pre_prompt='Input Text:'):
 
     return history, llm_outputs
 
+
 def extract_json_from_text(text):
     try:
-        # Find the first '{' and the last '}' to ensure we are only taking the JSON content
-        start = text.find('{')
-        end = text.rfind('}')
-        if start != -1 and end != -1:
-            json_content = text[start:end + 1]
-            return json.loads(json_content)
-        else:
-            return None
-    except json.JSONDecodeError:
+        # Clean up the text by removing code block markers if present
+        if text.startswith('```json') and text.endswith('```'):
+            text = text[7:-3].strip()
+
+        # Use demjson3 to decode the JSON content, which handles malformed JSON gracefully
+        parsed_json = demjson3.decode(text)
+        
+        # Validate that the required keys are present in the parsed JSON
+        required_keys = {"text_segment", "fallacy_explanation", "fallacy_type", "speaker", "start", "end", "gif_query"}
+        if not required_keys.issubset(parsed_json.keys()):
+            raise ValueError(f"Missing required keys in JSON: {parsed_json.keys()}")
+        
+        return parsed_json
+
+    except (demjson3.JSONDecodeError, ValueError) as e:
+        print(f"Error parsing JSON: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error during JSON extraction: {e}")
         return None
 
 def correct_llm_output(response, text_segment, start, end, speaker):
