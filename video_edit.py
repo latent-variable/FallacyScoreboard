@@ -22,7 +22,7 @@ def search_and_download_gif(query, output_path, limit = 5):
     global GIF_FAILURE_COUNT
     
     if GIF_FAILURE_COUNT >= 10:
-        print("Too many failed attempts to download a gif. Please check your internet connection and try again later.")
+        print("Too many failed attempts to download a gif. Likely reached api limit. Please check your internet connection and try again later.")
         return None
     
     if query is None or output_path is None or query == "" or output_path == "":
@@ -206,7 +206,8 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
         final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height))
         final_clip = final_clip.set_duration(video_duration)
 
-        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=8, fps=24, ffmpeg_params=['-c:v', 'h264_nvenc','-preset', 'fast'])
+        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'hp'])
+
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
@@ -270,7 +271,10 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
             fallacies = result["fallacy_type"]
             reason = result["fallacy_explanation"]
             text_segment = result["text_segment"]
-            gif_query = result["gif_query"]
+            if 'gif_query' in result:
+                gif_query = result["gif_query"]
+            else:
+                gif_query = ''
 
             if not isinstance(fallacies, list):
                 fallacies = [fallacies]
@@ -314,7 +318,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
         final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height))
         final_clip = final_clip.set_duration(video_duration)
 
-        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=8, fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'fast'] )
+        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=8, fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'hp'] )
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
