@@ -12,6 +12,7 @@ from moviepy.editor import VideoFileClip
 from llm import detect_fallacies
 from video_edit import overlay_fallacies_on_video, overlay_fallacies_on_vertical_video_with_bars
 
+
 # Set the path to the ImageMagick binary
 IMAGEMAGIK = r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe"
 change_settings({"IMAGEMAGICK_BINARY": IMAGEMAGIK})
@@ -29,7 +30,7 @@ GIPHY_API_KEY, YOUR_HF_TOKEN = read_config()
 
 def download_youtube_video(url, video_name):
     ydl_opts = {
-        'format': 'bestvideo[height=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
+        'format': 'bestvideo[height=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best',
         'outtmpl': str(video_name),
         'merge_output_format': 'mp4',
     }

@@ -11,7 +11,7 @@ from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
 from moviepy.config import change_settings
 change_settings({"FFMPEG_BINARY":"ffmpeg"})
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 
 def read_config(config_file="config.json"):
     with open(config_file, 'r') as f:
@@ -139,7 +139,7 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
 
         def create_scoreboard(counters):
             scoreboard_text = "Fallacy Scoreboard\n" + "\n".join([f"{s}: {c}" for s, c in counters.items()])
-            return TextClip(scoreboard_text, fontsize=main_font_size, color='white', bg_color='black', size=(sidebar_width, None), method='caption', align='West', stroke_color='white', stroke_width=1.0)
+            return TextClip(scoreboard_text, fontsize=main_font_size, color='white', bg_color='black', size=(sidebar_width, None), method='caption', align='West')
 
         scoreboard = create_scoreboard(fallacy_counters)
         scoreboard = scoreboard.set_position((original_width, 0)).set_duration(video_duration)
@@ -211,9 +211,17 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
 
         final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height))
         final_clip = final_clip.set_duration(video_duration)
+        final_clip = final_clip.resize(newsize=(1280, 720))  # Resize to a standard resolution
 
-        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=16,  fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'fast'])
-
+        final_clip.write_videofile(
+            final_video_name, 
+            codec="libx264", 
+            audio_codec="aac", 
+            threads=24, 
+            fps=24, 
+            ffmpeg_params=[ '-c:v', 'h264_nvenc', '-preset', 'fast']
+        )
+        final_clip.close()
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         
@@ -225,8 +233,8 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
         video_duration = video.duration
 
         # Target sizes for vertical format with black bars
-        new_width = 720
-        new_height =  1280
+        new_width = 480
+        new_height = 720 
         sidebar_width = int(new_width * 0.5)
         black_bar_height = abs(new_height - original_height) // 2
         print('black_bar_height', black_bar_height)
@@ -261,7 +269,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
             
         def create_scoreboard(fallacy_counters):
             scoreboard_text = "Fallacy Scoreboard\n" + "\n".join([f"{s}: {c}" for s, c in fallacy_counters.items()])
-            return TextClip(scoreboard_text, fontsize=main_font_size, color='white', bg_color='black', size=(sidebar_width, black_bar_height - 10), method='caption', align='West', stroke_color='white', stroke_width=1.0)
+            return TextClip(scoreboard_text, fontsize=main_font_size, color='white', bg_color='black', size=(sidebar_width, black_bar_height - 10), method='caption', align='West')
 
         scoreboard = create_scoreboard(fallacy_counters)
         scoreboard = scoreboard.set_position((10, 10)).set_duration(video_duration)
@@ -300,7 +308,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
                 fallacy_text = f"Speaker: {speaker}\nFallacies: {', '.join(valid_fallacies)}\n\nExplanation:\n{reason}"
 
                 fallacy_box = TextClip(fallacy_text, fontsize=subtitle_font_size, color=speaker_colors[speaker], bg_color='black', method='caption', align='West', size=(new_width - 20, None))
-                fallacy_box = fallacy_box.set_position((10, original_height +50 )).set_start(start_time).set_end(end_time)
+                fallacy_box = fallacy_box.set_position((10, original_height + 30 )).set_start(start_time).set_end(end_time)
                 text_clips.append(fallacy_box)
                 current_fallacy = fallacy_box
             elif current_fallacy:
@@ -334,6 +342,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
             fps=24, 
             ffmpeg_params=[ '-c:v', 'h264_nvenc', '-preset', 'fast']
         )
+        final_clip.close()
         print("Video created successfully!", time.time() - tik)
     except Exception as e:
         print(f"An error occurred: {str(e)}")
@@ -342,7 +351,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
 def add_gif_to_video_with_black_bars(black_bar_height, gif_path, start_time, end_time, new_width):
     gif = VideoFileClip(gif_path)
     # Resize GIF to fit within the black bar area
-    gif = gif.resize(height=black_bar_height // 2)
+    gif = gif.resize(height=black_bar_height//1)
 
     # Position the GIF in the top-right corner of the top black bar
     position = (new_width - gif.size[0] - 10, black_bar_height - gif.size[1] -10)

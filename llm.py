@@ -126,6 +126,11 @@ def extract_json_from_text(text):
         # Clean up the text by removing code block markers if present
         if text.startswith('```json') and text.endswith('```'):
             text = text[7:-3].strip()
+            
+        # Check if the content is a nested JSON string
+        if text.startswith('"') and text.endswith('"'):
+            # Unescape the JSON string
+            text = text[1:-1].replace('\\"', '"').replace('\\\\', '\\')
 
         # Use demjson3 to decode the JSON content, which handles malformed JSON gracefully
         parsed_json = demjson3.decode(text)
