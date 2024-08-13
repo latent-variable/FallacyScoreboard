@@ -5,6 +5,9 @@ import json
 import demjson3
 import ollama
 
+# Set the environment variables
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 
 # OLLAMA host & model
 OLLAMA_HOST  = 'http://192.168.50.81:11434' #'http://localhost:11434'

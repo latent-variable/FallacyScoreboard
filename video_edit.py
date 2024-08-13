@@ -1,4 +1,5 @@
 import os 
+import time
 import json
 import random
 import requests
@@ -7,6 +8,10 @@ from contextlib import contextmanager
 from moviepy.video.fx.all import crop
 from moviepy.editor import VideoFileClip, TextClip,  ColorClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
+
+from moviepy.config import change_settings
+change_settings({"FFMPEG_BINARY":"ffmpeg"})
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 def read_config(config_file="config.json"):
     with open(config_file, 'r') as f:
@@ -207,8 +212,7 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
         final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height))
         final_clip = final_clip.set_duration(video_duration)
 
-        final_clip.write_videofile(final_video_name, codec="h264_nvenc", audio_codec="aac", fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'p1'])
-
+        final_clip.write_videofile(final_video_name, codec="libx264", audio_codec="aac", threads=16,  fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'fast'])
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
@@ -221,14 +225,15 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
         video_duration = video.duration
 
         # Target sizes for vertical format with black bars
-        new_width = 1080
-        new_height = 1920
+        new_width = 720
+        new_height =  1280
         sidebar_width = int(new_width * 0.5)
-        black_bar_height = (new_height - original_height) // 2
+        black_bar_height = abs(new_height - original_height) // 2
+        print('black_bar_height', black_bar_height)
 
         # Font sizes based on video height
         main_font_size = max(int(black_bar_height * 0.1), 12)
-        subtitle_font_size = max(int(original_height * 0.05), 12)
+        subtitle_font_size = max(int(original_height * 0.03), 12)
 
         # Background with black bars
         background = ColorClip(size=(new_width, new_height), color=(0, 0, 0)).set_duration(video_duration)
@@ -295,7 +300,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
                 fallacy_text = f"Speaker: {speaker}\nFallacies: {', '.join(valid_fallacies)}\n\nExplanation:\n{reason}"
 
                 fallacy_box = TextClip(fallacy_text, fontsize=subtitle_font_size, color=speaker_colors[speaker], bg_color='black', method='caption', align='West', size=(new_width - 20, None))
-                fallacy_box = fallacy_box.set_position((10, original_height + black_bar_height)).set_start(start_time).set_end(end_time)
+                fallacy_box = fallacy_box.set_position((10, original_height +50 )).set_start(start_time).set_end(end_time)
                 text_clips.append(fallacy_box)
                 current_fallacy = fallacy_box
             elif current_fallacy:
@@ -314,21 +319,30 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
                 gif_clips.append(gif_clip)
 
             subtitle = TextClip(text_segment, fontsize=subtitle_font_size, color=speaker_colors[speaker], bg_color='black', method='caption', size=(new_width, None))
-            subtitle = subtitle.set_position((0, original_height + black_bar_height - 2 * subtitle.h)).set_start(start_time).set_end(end_time)
+            subtitle = subtitle.set_position((0, original_height - subtitle.h)).set_start(start_time).set_end(end_time)
             text_clips.append(subtitle)
 
-        final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height))
+        final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height), )
         final_clip = final_clip.set_duration(video_duration)
 
-        final_clip.write_videofile(final_video_name, codec="h264_nvenc", audio_codec="aac", threads=8, fps=24, ffmpeg_params=['-c:v', 'h264_nvenc', '-preset', 'p1'] )
-
+        tik = time.time()
+        final_clip.write_videofile(
+            final_video_name, 
+            codec="libx264", 
+            audio_codec="aac", 
+            threads=24, 
+            fps=24, 
+            ffmpeg_params=[ '-c:v', 'h264_nvenc', '-preset', 'fast']
+        )
+        print("Video created successfully!", time.time() - tik)
     except Exception as e:
         print(f"An error occurred: {str(e)}")
+
 
 def add_gif_to_video_with_black_bars(black_bar_height, gif_path, start_time, end_time, new_width):
     gif = VideoFileClip(gif_path)
     # Resize GIF to fit within the black bar area
-    gif = gif.resize(height=black_bar_height // 2.5)
+    gif = gif.resize(height=black_bar_height // 2)
 
     # Position the GIF in the top-right corner of the top black bar
     position = (new_width - gif.size[0] - 10, black_bar_height - gif.size[1] -10)
