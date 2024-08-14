@@ -150,7 +150,7 @@ def create_plots(df_filtered):
             "Average Duration of Fallacies",
             "Sentiment Analysis Over Time"
         ),
-        vertical_spacing=0.03  # Decrease vertical spacing
+        vertical_spacing=0.05
     )
 
     # 1. Scatter plot: Fallacy Distribution Over Time

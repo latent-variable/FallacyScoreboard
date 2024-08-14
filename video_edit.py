@@ -174,7 +174,7 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
                 new_scoreboard = new_scoreboard.set_position((original_width, 0)).set_start(start_time)
                 text_clips.append(new_scoreboard)
 
-                fallacy_text = f"Speaker: {speaker}\nFallacies: {', '.join(valid_fallacies)}\n\nExplanation:\n{reason}"
+                fallacy_text = f"Fallacies: {', '.join(valid_fallacies)}\n\nExplanation:\n{reason}"
                 
                 fallacy_box = TextClip(fallacy_text, fontsize=subtitle_font_size, color=speaker_colors[speaker], bg_color='black', method='caption', align='West', size=(sidebar_width - 20, None))
                 
@@ -308,10 +308,10 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
                 scoreboard = scoreboard.set_position((10, 10)).set_start(start_time)
                 text_clips.append(scoreboard)
 
-                fallacy_text = f"Speaker: {speaker}\nFallacies: {', '.join(valid_fallacies)}\n\nExplanation:\n{reason}"
+                fallacy_text = f"Fallacies: {', '.join(valid_fallacies)}\nExplanation:\n{reason}"
 
                 fallacy_box = TextClip(fallacy_text, fontsize=subtitle_font_size, color=speaker_colors[speaker], bg_color='black', method='caption', align='West', size=(new_width - 20, None))
-                fallacy_box = fallacy_box.set_position((10, original_height )).set_start(start_time).set_end(end_time)
+                fallacy_box = fallacy_box.set_position((10, original_height- 20 )).set_start(start_time).set_end(end_time)
                 text_clips.append(fallacy_box)
                 current_fallacy = fallacy_box
             elif current_fallacy:
@@ -330,7 +330,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
                 gif_clips.append(gif_clip)
 
             subtitle = TextClip(text_segment, fontsize=subtitle_font_size, color=speaker_colors[speaker], bg_color='black', method='caption', size=(new_width, None))
-            subtitle = subtitle.set_position((0, original_height - 100)).set_start(start_time).set_end(end_time)
+            subtitle = subtitle.set_position((0, original_height - 80)).set_start(start_time).set_end(end_time)
             text_clips.append(subtitle)
 
         final_clip = CompositeVideoClip([background, video] + text_clips + [gif for gif in gif_clips if gif], size=(new_width, new_height), )
