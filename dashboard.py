@@ -222,7 +222,7 @@ def create_dashboard(json_file, dashboard_file):
     df_filtered = load_and_preprocess_data(json_file)
 
     # Generate word cloud image
-    wordcloud_image_path = dashboard_file[:-4] + ".png"
+    wordcloud_image_path = dashboard_file[:-5] + ".png"
     generate_word_cloud_image(df_filtered, wordcloud_image_path)
 
     # Create the Plotly figure

@@ -61,21 +61,59 @@ def transcribe_audio_with_whisperx(audio_path, output_path):
     with open(os.path.join(output_path), 'w') as f:
         f.write(json.dumps(result, indent=2))
 
-def format_text(json_file, output_path):
-    # load the json file
+def format_text(json_file, output_path, min_length=2):
+    # Load the JSON file
     with open(json_file, 'r') as file:
         data = json.load(file)
 
     # Process the segments to extract speaker labels and text
     formatted_text = []
-    for segment in data['segments']:
+    accumulated_text = ""
+    accumulated_start = None
+    previous_speaker = None
+
+    for i, segment in enumerate(data['segments']):
         speaker = 'multiple'
         if 'speaker' in segment:
             speaker = segment['speaker']
+        
         start = segment["start"]
         end = segment["end"]
         text = segment['text'].strip()
-        formatted_text.append(f"{start}-{end} {speaker}: {text}")
+        segment_length = end - start
+
+        # Check if the speaker is consistent
+        if speaker == previous_speaker:
+            # Accumulate text if the segment is too short
+            if segment_length < min_length:
+                if accumulated_start is None:
+                    accumulated_start = start
+                accumulated_text += " " + text
+            else:
+                # If there's accumulated text, append it to this segment
+                if accumulated_text:
+                    text = accumulated_text.strip() + " " + text
+                    start = accumulated_start
+                    accumulated_text = ""
+                    accumulated_start = None
+                formatted_text.append(f"{start}-{end} {speaker}: {text}")
+        else:
+            # If speakers don't line up, break and append the current segment
+            if accumulated_text:
+                # Append any accumulated text from the previous speaker
+                formatted_text.append(f"{accumulated_start}-{end} {previous_speaker}: {accumulated_text.strip()}")
+                accumulated_text = ""
+                accumulated_start = None
+
+            # Append the current segment directly
+            formatted_text.append(f"{start}-{end} {speaker}: {text}")
+
+        # Update the previous speaker
+        previous_speaker = speaker
+
+    # Handle any remaining accumulated text at the end
+    if accumulated_text:
+        formatted_text.append(f"{accumulated_start}-{end} {previous_speaker}: {accumulated_text.strip()}")
 
     # Join the segments into a single string with each segment on a new line
     formatted_text_str = "\n".join(formatted_text)
@@ -83,7 +121,6 @@ def format_text(json_file, output_path):
     # Save the formatted text to a new text file
     with open(output_path, 'w') as output_file:
         output_file.write(formatted_text_str)
-
 
 # Define the processing functions at the top level
 def process_regular_video(video_name, fallacy_analysis_path, final_video_name):
@@ -100,7 +137,7 @@ def process_vertical_video(video_name, fallacy_analysis_path, final_vertical_vid
     else:
         print("Vertical video already updated with fallacies.")
 
-def fallacy_detection_pipeline(youtube_url, output_path):
+def fallacy_detection_pipeline(youtube_url, output_path, create_video=True):
     name = youtube_url.split('=')[-1]
 
     output_path = os.path.join(output_path, name)
@@ -147,29 +184,31 @@ def fallacy_detection_pipeline(youtube_url, output_path):
     else:
         print("Fallacies already detected.")
         
-    # Prepare arguments for processing functions
-    final_video_name = os.path.join(output_path, name + "_fallacy_analysis.mp4")
-    final_vertical_video_name = os.path.join(output_path, name + "_vertical_fallacy_analysis.mp4")
-    
-    # Use multiprocessing to run both video processes in parallel
-    regular_video_process = Process(target=process_regular_video, args=(video_name, fallacy_analysis_path, final_video_name))
-    vertical_video_process = Process(target=process_vertical_video, args=(video_name, fallacy_analysis_path, final_vertical_video_name))
-
-    # Start both processes
-    regular_video_process.start()
-    vertical_video_process.start()
-
-    # Wait for both processes to complete
-    regular_video_process.join()
-    vertical_video_process.join()
-
-    # TODO: Create a dashboard to visualize the fallacy analysis results
-    # This could include charts, graphs, and other visualizations to help users understand the results of the fallacy analysis
     dashboard_file = os.path.join(output_path, name + "_dashboard.html")
     if not os.path.exists(dashboard_file):
         print("Creating dashboard...")
         create_dashboard(fallacy_analysis_path, dashboard_file)
+    else:
+        print("Dashboard already created.")
 
+    if create_video:
+        # Prepare arguments for processing functions
+        final_video_name = os.path.join(output_path, name + "_fallacy_analysis.mp4")
+        final_vertical_video_name = os.path.join(output_path, name + "_vertical_fallacy_analysis.mp4")
+        
+        # Use multiprocessing to run both video processes in parallel
+        regular_video_process = Process(target=process_regular_video, args=(video_name, fallacy_analysis_path, final_video_name))
+        vertical_video_process = Process(target=process_vertical_video, args=(video_name, fallacy_analysis_path, final_vertical_video_name))
+
+        # Start both processes
+        regular_video_process.start()
+        vertical_video_process.start()
+
+        # Wait for both processes to complete
+        regular_video_process.join()
+        vertical_video_process.join()
+
+    
     print("Done!")
 
 if __name__ == "__main__": 
