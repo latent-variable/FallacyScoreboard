@@ -1,6 +1,9 @@
 yt_dlp 
 ollama
 demjson3
+plotly
+wordcloud
+textblob
 Pillow==9.5.0
 torch==2.0.0+cu118
 torchaudio==2.0.0+cu118

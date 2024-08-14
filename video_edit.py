@@ -4,6 +4,7 @@ import json
 import random
 import requests
 import colorsys
+import traceback
 from contextlib import contextmanager
 from moviepy.video.fx.all import crop
 from moviepy.editor import VideoFileClip, TextClip,  ColorClip
@@ -83,7 +84,7 @@ def add_gif_to_video(original_height, new_height, new_width, gif_path, start_tim
 
     gif = VideoFileClip(gif_path)
     # Resize GIF to fit within the video frame if necessary
-    gif = gif.resize(height=original_height // 4.5)
+    gif = gif.resize(height=max(original_height // 4.5, 20))
     
     # Calculate position for the center of the black vertical panel on the right side
     position = (new_width - sidebar_width + (sidebar_width - gif.size[0]) // 2, (new_height - gif.size[1]) )
@@ -108,6 +109,7 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
         bottom_height = int(original_height * 0.15)
         new_width = original_width + sidebar_width
         new_height = original_height + bottom_height
+        
 
         # Font sizes based on video height
         main_font_size = max(int(original_height * 0.04), 12)
@@ -149,7 +151,7 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
         current_fallacy = None
 
         for i, result in enumerate(fallacy_results):
-            print(f"\rProcessing fallacy {i+1}/{len(fallacy_results)}", end="")
+            print(f"\rHorizontal Processing fallacy {i+1}/{len(fallacy_results)}     ", end="")
             start_time = max(0, min(result["start"], video_duration))
             end_time = max(start_time, min(result["end"], video_duration))
             speaker = result["speaker"]
@@ -224,6 +226,8 @@ def overlay_fallacies_on_video(video_path, fallacy_results_file, final_video_nam
         final_clip.close()
     except Exception as e:
         print(f"An error occurred: {str(e)}")
+        # add stack trace
+        traceback.print_exc()
         
         
 def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_file, final_video_name):
@@ -237,8 +241,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
         new_height = 720 
         sidebar_width = int(new_width * 0.5)
         black_bar_height = abs(new_height - original_height) // 2
-        print('black_bar_height', black_bar_height)
-
+        
         # Font sizes based on video height
         main_font_size = max(int(black_bar_height * 0.1), 12)
         subtitle_font_size = max(int(original_height * 0.03), 12)
@@ -279,7 +282,7 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
         current_fallacy = None
 
         for i, result in enumerate(fallacy_results):
-            print(f"\rProcessing fallacy {i+1}/{len(fallacy_results)}", end="")
+            print(f"\rVertical Processing fallacy {i+1}/{len(fallacy_results)}      ", end="")
             start_time = max(0, min(result["start"], video_duration))
             end_time = max(start_time, min(result["end"], video_duration))
             speaker = result["speaker"]
@@ -346,12 +349,13 @@ def overlay_fallacies_on_vertical_video_with_bars(video_path, fallacy_results_fi
         print("Video created successfully!", time.time() - tik)
     except Exception as e:
         print(f"An error occurred: {str(e)}")
+        traceback.print_exc()
 
 
 def add_gif_to_video_with_black_bars(black_bar_height, gif_path, start_time, end_time, new_width):
     gif = VideoFileClip(gif_path)
     # Resize GIF to fit within the black bar area
-    gif = gif.resize(height=black_bar_height//1)
+    gif = gif.resize(height=max(black_bar_height//1, 10))
 
     # Position the GIF in the top-right corner of the top black bar
     position = (new_width - gif.size[0] - 10, black_bar_height - gif.size[1] -10)

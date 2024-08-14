@@ -7,11 +7,11 @@ import whisperx
 from pathlib import Path
 from moviepy.config import change_settings
 from moviepy.editor import VideoFileClip
-
+from multiprocessing import Process
 
 from llm import detect_fallacies
 from video_edit import overlay_fallacies_on_video, overlay_fallacies_on_vertical_video_with_bars
-
+from dashboard import create_dashboard
 
 # Set the path to the ImageMagick binary
 IMAGEMAGIK = r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe"
@@ -85,6 +85,21 @@ def format_text(json_file, output_path):
         output_file.write(formatted_text_str)
 
 
+# Define the processing functions at the top level
+def process_regular_video(video_name, fallacy_analysis_path, final_video_name):
+    if not os.path.exists(final_video_name):
+        print("Overlaying fallacies on horizontal video...")
+        overlay_fallacies_on_video(video_name, fallacy_analysis_path, final_video_name)
+    else:
+        print("Video already updated with fallacies.")
+
+def process_vertical_video(video_name, fallacy_analysis_path, final_vertical_video_name):
+    if not os.path.exists(final_vertical_video_name):
+        print("Overlaying fallacies on vertical video...")
+        overlay_fallacies_on_vertical_video_with_bars(video_name, fallacy_analysis_path, final_vertical_video_name)
+    else:
+        print("Vertical video already updated with fallacies.")
+
 def fallacy_detection_pipeline(youtube_url, output_path):
     name = youtube_url.split('=')[-1]
 
@@ -132,32 +147,34 @@ def fallacy_detection_pipeline(youtube_url, output_path):
     else:
         print("Fallacies already detected.")
         
-    #update video with fallacy analysis
+    # Prepare arguments for processing functions
     final_video_name = os.path.join(output_path, name + "_fallacy_analysis.mp4")
-    if not os.path.exists(final_video_name):
-        print("Overlaying fallacies on video...")
-        overlay_fallacies_on_video(video_name, fallacy_analysis_path, final_video_name)
-    else:
-        print("Video already updated with fallacies.")
-        
-    
-    #update video with fallacy analysis
     final_vertical_video_name = os.path.join(output_path, name + "_vertical_fallacy_analysis.mp4")
-    if not os.path.exists(final_vertical_video_name):
-        print("Overlaying fallacies on vertical video...")
-        overlay_fallacies_on_vertical_video_with_bars(video_name, fallacy_analysis_path, final_vertical_video_name)
-    else:
-        print("Vertical video already updated with fallacies.")
-        
+    
+    # Use multiprocessing to run both video processes in parallel
+    regular_video_process = Process(target=process_regular_video, args=(video_name, fallacy_analysis_path, final_video_name))
+    vertical_video_process = Process(target=process_vertical_video, args=(video_name, fallacy_analysis_path, final_vertical_video_name))
+
+    # Start both processes
+    regular_video_process.start()
+    vertical_video_process.start()
+
+    # Wait for both processes to complete
+    regular_video_process.join()
+    vertical_video_process.join()
+
     # TODO: Create a dashboard to visualize the fallacy analysis results
     # This could include charts, graphs, and other visualizations to help users understand the results of the fallacy analysis
-    
+    dashboard_file = os.path.join(output_path, name + "_dashboard.html")
+    if not os.path.exists(dashboard_file):
+        print("Creating dashboard...")
+        create_dashboard(fallacy_analysis_path, dashboard_file)
 
     print("Done!")
 
 if __name__ == "__main__": 
     output_path = os.path.abspath(Path("./Files"))
-    video_url = 'https://www.youtube.com/watch?v=LM-bjbeqaqE'  #"https://www.youtube.com/watch?v=jcsncEfRpgs" #
+    video_url =  'https://www.youtube.com/watch?v=LM-bjbeqaqE' #"https://www.youtube.com/watch?v=jcsncEfRpgs" #
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     
